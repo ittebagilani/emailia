@@ -14,10 +14,33 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(uuid()) // Unique identifier for the user
-  name        String? // Nullable field for user's name
-  email       String   @unique // Email must be unique for each user
-  password    String? // Nullable field for password (only for email signup)
-  dateCreated DateTime @default(now()) // Timestamp for when the user is created
-  dateUpdated DateTime @updatedAt // Automatically updated on record updates
+  id      String @id @default(cuid())
+  clerkId String @unique // Clerk's unique user ID
+  email     String   @unique
+  name      String?
+  lists     List[] // One-to-many relationship with List
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model List {
+  id             String     @id @default(uuid()) // UUID for unique identification
+  userId         String // Foreign key to User
+  user           User       @relation(fields: [userId], references: [id])
+  name           String
+  businesses     Business[] // One-to-many relationship with Business
+  createdAt      DateTime   @default(now())
+  lastOpenedDate DateTime   @updatedAt
+}
+
+model Business {
+  id          String   @id @default(uuid()) // UUID for unique identification
+  name        String
+  address     String?
+  phoneNumber String?
+  website     String?
+  listId      String // Foreign key to List
+  list        List     @relation(fields: [listId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
