@@ -67,7 +67,7 @@ const Navbar: React.FC = () => {
       <SignedIn>
         <div className="md:m-4 my-4 flex justify-between items-center px-20">
           <h1 className="text-medium font-medium light:text-black dark:text-white">
-            EMALIA
+            EMAILIA
           </h1>
           <div className="space-x-8">
             <Link href={"/dashboard"}>
