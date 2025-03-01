@@ -9,12 +9,14 @@ export default function Dashboard() {
         <h1 className="mb-3 mt-10 font-black text-5xl">My Lists</h1>
 
         {/* Replace button with CreateListDialog */}
-        <Link href={`/create-list`}>
-          <Button>
-            <PlusIcon size={24} />
-            Create List
-          </Button>
-        </Link>
+        <div className="items-center flex mt-10">
+          <Link href={`/create-list`}>
+            <Button>
+              <PlusIcon size={24} />
+              Create List
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Display all user files */}
