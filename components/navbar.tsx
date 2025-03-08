@@ -4,7 +4,7 @@ import type React from "react"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Menu, X } from 'lucide-react'
+import { Menu } from "lucide-react"
 import { Button } from "./ui/button"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet"
@@ -29,20 +29,20 @@ const Navbar: React.FC = () => {
     return () => {
       window.removeEventListener("scroll", handleScroll)
     }
-  }, [lastScrollY]) //Corrected useEffect dependency array
+  }, []) //Fixed: Removed lastScrollY dependency
 
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768 && isOpen) {
-        setIsOpen(false);
+        setIsOpen(false)
       }
-    };
+    }
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize)
     return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [isOpen]);
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [isOpen])
 
   const NavLinks = () => (
     <>
@@ -63,7 +63,7 @@ const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed bg-white/75 dark:bg-black/75 backdrop-blur-lg top-0 left-0 w-full shadow-md dark:shadow-sm shadow-black/10 dark:shadow-white/10 transition-transform duration-300 z-[20] ${
+      className={`fixed bg-white/75 dark:bg-black/75 backdrop-blur-lg top-0 left-0 w-full shadow-md dark:shadow-sm shadow-black/10 dark:shadow-white/10 transition-transform duration-300 z-[2000] ${
         showNavbar ? "translate-y-0" : "-translate-y-full"
       }`}
     >
@@ -100,10 +100,6 @@ const Navbar: React.FC = () => {
                   <div className="flex flex-col h-full">
                     <div className="flex justify-between items-center py-4 border-b border-gray-200 dark:border-gray-700">
                       <h2 className="text-xl font-bold text-black dark:text-white">EMAILIA</h2>
-                      <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                        <X className="h-6 w-6 text-black dark:text-white" />
-                        <span className="sr-only">Close menu</span>
-                      </Button>
                     </div>
                     <div className="flex flex-col space-y-6 py-8">
                       <Link href={"/"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
@@ -159,14 +155,10 @@ const Navbar: React.FC = () => {
                     <span className="sr-only">Toggle menu</span>
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-[75%] sm:w-[350px] bg-white dark:bg-gray-900 z-200">
+                <SheetContent side="right" className="w-[75%] sm:w-[350px] bg-white dark:bg-gray-900">
                   <div className="flex flex-col h-full">
                     <div className="flex justify-between items-center py-4 border-b border-gray-200 dark:border-gray-700">
                       <h2 className="text-xl font-bold text-black dark:text-white">EMAILIA</h2>
-                      <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                        {/* <X className="h-6 w-6 text-black dark:text-white" /> */}
-                        <span className="sr-only">Close menu</span>
-                      </Button>
                     </div>
                     <div className="flex flex-col space-y-6 py-8">
                       <Link href={"/dashboard"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
@@ -188,3 +180,4 @@ const Navbar: React.FC = () => {
 }
 
 export default Navbar
+

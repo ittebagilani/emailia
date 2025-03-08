@@ -20,7 +20,7 @@ export default function BusinessSearch() {
   const [showSavedList, setShowSavedList] = useState(false)
   const [selectedMarker, setSelectedMarker] = useState(null)
 
-  const handleSearch = async (e) => {
+  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!map) return
 
