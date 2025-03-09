@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 interface EnhancedPlaceResult extends google.maps.places.PlaceResult {
-  details?: google.maps.places.PlaceResult;
+  details?: google.maps.places.PlaceResult | null;
 }
 
 const mapContainerStyle = { width: "100%", height: "100%" }
@@ -49,12 +49,12 @@ export default function BusinessSearch() {
           }
           
           placesService.getDetails(detailRequest, (placeResult, detailStatus) => {
-            if (detailStatus === google.maps.places.PlacesServiceStatus.OK) {
-              const enhancedPlace = {
+            if (detailStatus === google.maps.places.PlacesServiceStatus.OK && placeResult) {
+              const enhancedPlace: EnhancedPlaceResult = {
                 ...place,
                 details: placeResult
-              }
-              setBusinesses(prev => [...prev.filter(b => b.place_id !== place.place_id), enhancedPlace])
+              };
+              setBusinesses(prev => [...prev.filter(b => b.place_id !== place.place_id), enhancedPlace]);
             }
           })
         })
