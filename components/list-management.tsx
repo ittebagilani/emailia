@@ -1,7 +1,21 @@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
-export function ListManagement({ listName, setListName, selectedBusinesses, searchResults, onAddBusiness }) {
+interface Business {
+  id: string;
+  name: string;
+  address: string;
+}
+
+interface ListManagementProps {
+  listName: string;
+  setListName: (name: string) => void;
+  selectedBusinesses: Business[];
+  searchResults: Business[];
+  onAddBusiness: (business: Business) => void;
+}
+
+export function ListManagement({ listName, setListName, selectedBusinesses, searchResults, onAddBusiness }: ListManagementProps) {
   return (
     <div className="space-y-4">
       <Input
