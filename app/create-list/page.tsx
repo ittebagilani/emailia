@@ -7,18 +7,22 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
+interface EnhancedPlaceResult extends google.maps.places.PlaceResult {
+  details?: google.maps.places.PlaceResult;
+}
+
 const mapContainerStyle = { width: "100%", height: "100%" }
 const defaultCenter = { lat: 43.6532, lng: -79.3832 }
 
 export default function BusinessSearch() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [map, setMap] = useState(null)
-  const [autocomplete, setAutocomplete] = useState(null)
-  const [businesses, setBusinesses] = useState([])
-  const [selectedBusiness, setSelectedBusiness] = useState(null)
-  const [savedBusinesses, setSavedBusinesses] = useState([])
+  const [map, setMap] = useState<google.maps.Map | null>(null)
+  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null)
+  const [businesses, setBusinesses] = useState<EnhancedPlaceResult[]>([])
+  const [selectedBusiness, setSelectedBusiness] = useState<EnhancedPlaceResult | null>(null)
+  const [savedBusinesses, setSavedBusinesses] = useState<EnhancedPlaceResult[]>([])
   const [showSavedList, setShowSavedList] = useState(false)
-  const [selectedMarker, setSelectedMarker] = useState(null)
+  const [selectedMarker, setSelectedMarker] = useState<EnhancedPlaceResult | null>(null)
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -36,7 +40,9 @@ export default function BusinessSearch() {
     placesService.textSearch(request, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK) {
         // Get detailed information for each place
-        results.forEach((place) => {
+        results?.forEach((place) => {
+          if (!place.place_id) return; // Skip if no place_id exists
+          
           const detailRequest = {
             placeId: place.place_id,
             fields: ['name', 'rating', 'formatted_phone_number', 'website', 'reviews', 'opening_hours', 'price_level']
@@ -56,11 +62,11 @@ export default function BusinessSearch() {
     })
   }
 
-  const handleMarkerClick = useCallback((business) => {
+  const handleMarkerClick = useCallback((business: google.maps.places.PlaceResult) => {
     setSelectedMarker(business)
     setSelectedBusiness(business)
     // Center map on selected business
-    if (map && business.geometry) {
+    if (map && business.geometry?.location) {
       map.panTo({
         lat: business.geometry.location.lat(),
         lng: business.geometry.location.lng()
@@ -68,21 +74,21 @@ export default function BusinessSearch() {
     }
   }, [map])
 
-  const handleSaveBusiness = (business) => {
+  const handleSaveBusiness = (business: google.maps.places.PlaceResult) => {
     if (!savedBusinesses.find(b => b.place_id === business.place_id)) {
       setSavedBusinesses([...savedBusinesses, business])
     }
   }
 
-  const removeSavedBusiness = (businessId) => {
+  const removeSavedBusiness = (businessId: string) => {
     setSavedBusinesses(savedBusinesses.filter(b => b.place_id !== businessId))
   }
 
-  const formatRating = (rating) => {
+  const formatRating = (rating: number) => {
     return rating ? `${rating.toFixed(1)} ⭐` : 'No rating'
   }
 
-  const getPriceLevel = (level) => {
+  const getPriceLevel = (level: number) => {
     return level ? '💰'.repeat(level) : 'Price not available'
   }
 
@@ -97,7 +103,7 @@ export default function BusinessSearch() {
                 onLoad={setAutocomplete}
                 onPlaceChanged={() => {
                   if (autocomplete) {
-                    setSearchTerm(autocomplete.getPlace().name)
+                    setSearchTerm(autocomplete.getPlace().name || "")
                   }
                 }}
               >
@@ -164,8 +170,8 @@ export default function BusinessSearch() {
                 <Marker
                   key={business.place_id}
                   position={{
-                    lat: business.geometry.location.lat(),
-                    lng: business.geometry.location.lng(),
+                    lat: business.geometry?.location?.lat() ?? defaultCenter.lat,
+                    lng: business.geometry?.location?.lng() ?? defaultCenter.lng,
                   }}
                   onClick={() => handleMarkerClick(business)}
                 />
@@ -174,8 +180,8 @@ export default function BusinessSearch() {
               {selectedMarker && (
                 <InfoWindow
                   position={{
-                    lat: selectedMarker.geometry.location.lat(),
-                    lng: selectedMarker.geometry.location.lng(),
+                    lat: selectedMarker.geometry?.location?.lat() ?? defaultCenter.lat,
+                    lng: selectedMarker.geometry?.location?.lng() ?? defaultCenter.lng,
                   }}
                   onCloseClick={() => {
                     setSelectedMarker(null)
@@ -271,7 +277,7 @@ export default function BusinessSearch() {
                       variant="ghost"
                       size="sm"
                       className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                      onClick={() => removeSavedBusiness(business.place_id)}
+                      onClick={() => removeSavedBusiness(business.place_id || '')}
                     >
                       <X className="w-4 h-4" />
                     </Button>
