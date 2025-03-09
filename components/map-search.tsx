@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
-export function MapSearch({ onSearch }) {
+interface MapSearchProps {
+  onSearch: (keyword: string) => void;
+}
+
+export function MapSearch({ onSearch }: MapSearchProps) {
   const [keyword, setKeyword] = useState('')
 
   const handleSearch = () => {
