@@ -1,65 +1,48 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import Link from "next/link"
-import { useEffect, useState } from "react"
-import { Menu } from "lucide-react"
-import { Button } from "./ui/button"
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
-import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet"
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Menu } from "lucide-react";
+import { Button } from "./ui/button";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 
 const Navbar: React.FC = () => {
-  const [showNavbar, setShowNavbar] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
+  const [showNavbar, setShowNavbar] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleScroll = () => {
-    const currentScrollY = window.scrollY
+    const currentScrollY = window.scrollY;
     if (currentScrollY > lastScrollY && currentScrollY > 100) {
-      setShowNavbar(false)
+      setShowNavbar(false);
     } else {
-      setShowNavbar(true)
+      setShowNavbar(true);
     }
-    setLastScrollY(currentScrollY)
-  }
+    setLastScrollY(currentScrollY);
+  };
 
   useEffect(() => {
-    window.addEventListener("scroll", handleScroll)
+    window.addEventListener("scroll", handleScroll);
     return () => {
-      window.removeEventListener("scroll", handleScroll)
-    }
-  }, []) //Fixed: Removed lastScrollY dependency
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []); //Fixed: Removed lastScrollY dependency
 
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768 && isOpen) {
-        setIsOpen(false)
+        setIsOpen(false);
       }
-    }
+    };
 
-    window.addEventListener("resize", handleResize)
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [isOpen])
-
-  const NavLinks = () => (
-    <>
-      <Link href={"/"} className="nav-link">
-        HOME
-      </Link>
-      <Link href={"/features"} className="nav-link">
-        FEATURES
-      </Link>
-      <Link href={"/pricing"} className="nav-link">
-        PRICING
-      </Link>
-      <Link href={"/contact"} className="nav-link">
-        CONTACT
-      </Link>
-    </>
-  )
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isOpen]);
 
   return (
     <nav
@@ -73,13 +56,14 @@ const Navbar: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Link href="/" className="flex-shrink-0">
-                <h1 className="text-xl font-bold text-black dark:text-white">EMAILIA</h1>
+                <h1 className="text-xl font-medium text-black dark:text-white">
+                  emaila
+                </h1>
               </Link>
             </div>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              <NavLinks />
               <SignInButton>
                 <Button className="bg-[#E3B5A4] hover:bg-[#d39e8a] text-black font-medium transition-colors">
                   GET STARTED
@@ -88,43 +72,12 @@ const Navbar: React.FC = () => {
             </div>
 
             {/* Mobile Navigation */}
-            <div className="md:hidden">
-              <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-black dark:text-white">
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Toggle menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[75%] sm:w-[350px] bg-white dark:bg-gray-900">
-                  <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center py-4 border-b border-gray-200 dark:border-gray-700">
-                      <h2 className="text-xl font-bold text-black dark:text-white">EMAILIA</h2>
-                    </div>
-                    <div className="flex flex-col space-y-6 py-8">
-                      <Link href={"/"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
-                        HOME
-                      </Link>
-                      <Link href={"/features"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
-                        FEATURES
-                      </Link>
-                      <Link href={"/pricing"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
-                        PRICING
-                      </Link>
-                      <Link href={"/contact"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
-                        CONTACT
-                      </Link>
-                    </div>
-                    <div className="mt-auto pb-8">
-                      <SignInButton>
-                        <Button className="w-full bg-[#E3B5A4] hover:bg-[#d39e8a] text-black font-medium">
-                          GET STARTED
-                        </Button>
-                      </SignInButton>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
+            <div className="mt-auto pb-8 md:hidden">
+              <SignInButton>
+                <Button className="w-full bg-[#E3B5A4] hover:bg-[#d39e8a] text-black font-medium align-middle justify-center items-center flex mt-2.5">
+                  GET STARTED
+                </Button>
+              </SignInButton>
             </div>
           </div>
         </div>
@@ -135,7 +88,9 @@ const Navbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex-shrink-0">
-              <h1 className="text-xl font-bold text-black dark:text-white">EMAILIA</h1>
+              <h1 className="text-xl font-medium text-black dark:text-white">
+                emaila
+              </h1>
             </Link>
 
             {/* Desktop Navigation */}
@@ -147,37 +102,22 @@ const Navbar: React.FC = () => {
             </div>
 
             {/* Mobile Navigation */}
-            <div className="md:hidden flex items-center space-x-4">
-              <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-black dark:text-white">
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Toggle menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[75%] sm:w-[350px] bg-white dark:bg-gray-900">
-                  <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center py-4 border-b border-gray-200 dark:border-gray-700">
-                      <h2 className="text-xl font-bold text-black dark:text-white">EMAILIA</h2>
-                    </div>
-                    <div className="flex flex-col space-y-6 py-8">
-                      <Link href={"/dashboard"} className="mobile-nav-link" onClick={() => setIsOpen(false)}>
-                        Dashboard
-                      </Link>
-                    </div>
-                    <div className="mt-auto pb-8 flex justify-center">
-                      <UserButton afterSignOutUrl="/" />
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
+            <div className="flex flex-row h-full md:hidden">
+              <div className="flex flex-row space-y-6 mt-2.5">
+                <Link
+                  href={"/dashboard"}
+                  className="mobile-nav-link"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Button>Dashboard</Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </SignedIn>
     </nav>
-  )
-}
+  );
+};
 
-export default Navbar
-
+export default Navbar;

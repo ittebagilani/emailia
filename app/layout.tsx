@@ -10,6 +10,7 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
+import Footer from "@/components/footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,10 +27,13 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
-        <body className={cn("antialiased bg-white text-[#000000]", inter.className)}>
-          <Navbar />
+        <body
+          className={cn("antialiased bg-white text-[#000000]", inter.className)}
+        >
           
+
           {children}
+          <Footer />
         </body>
       </html>
     </ClerkProvider>

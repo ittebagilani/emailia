@@ -6,9 +6,12 @@ import { GoogleMap, LoadScript, Autocomplete, Marker, InfoWindow } from "@react-
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { useRouter } from "next/navigation"
 
 interface EnhancedPlaceResult extends google.maps.places.PlaceResult {
   details?: google.maps.places.PlaceResult | null;
+  email?: string;
 }
 
 const mapContainerStyle = { width: "100%", height: "100%" }
@@ -23,6 +26,9 @@ export default function BusinessSearch() {
   const [savedBusinesses, setSavedBusinesses] = useState<EnhancedPlaceResult[]>([])
   const [showSavedList, setShowSavedList] = useState(false)
   const [selectedMarker, setSelectedMarker] = useState<EnhancedPlaceResult | null>(null)
+  const [showNameDialog, setShowNameDialog] = useState(false)
+  const [listName, setListName] = useState("")
+  const router = useRouter()
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -31,9 +37,11 @@ export default function BusinessSearch() {
     const placesService = new google.maps.places.PlacesService(map)
     setBusinesses([]) // Clear previous results
 
+    const bounds = map.getBounds()
+    if (!bounds) return
+
     const request = {
-      location: defaultCenter,
-      radius: 5000,
+      bounds: bounds,
       query: searchTerm,
     }
 
@@ -74,9 +82,28 @@ export default function BusinessSearch() {
     }
   }, [map])
 
-  const handleSaveBusiness = (business: google.maps.places.PlaceResult) => {
+  const handleSaveBusiness = async (business: EnhancedPlaceResult) => {
     if (!savedBusinesses.find(b => b.place_id === business.place_id)) {
-      setSavedBusinesses([...savedBusinesses, business])
+      // If the business has a website, attempt to find an email
+      if (business.details?.website) {
+        try {
+          const response = await fetch('/api/scrape-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url: business.details.website }),
+          });
+          
+          if (response.ok) {
+            const { email } = await response.json();
+            business.email = email;
+          }
+        } catch (error) {
+          console.error('Error fetching email:', error);
+        }
+      }
+      setSavedBusinesses([...savedBusinesses, business]);
     }
   }
 
@@ -91,6 +118,40 @@ export default function BusinessSearch() {
   const getPriceLevel = (level: number) => {
     return level ? '💰'.repeat(level) : 'Price not available'
   }
+
+  const handleSaveList = async () => {
+    if (!listName.trim()) return;
+
+    try {
+      const response = await fetch('/api/lists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: listName,
+          businesses: savedBusinesses.map(business => ({
+            placeId: business.place_id,
+            name: business.name,
+            address: business.formatted_address,
+            phone: business.details?.formatted_phone_number,
+            website: business.details?.website,
+            email: business.email,
+            rating: business.details?.rating,
+            priceLevel: business.details?.price_level,
+            latitude: business.geometry?.location?.lat(),
+            longitude: business.geometry?.location?.lng(),
+          }))
+        }),
+      });
+
+      if (response.ok) {
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      console.error('Error saving list:', error);
+    }
+  };
 
   return (
     <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={["places"]}>
@@ -192,7 +253,7 @@ export default function BusinessSearch() {
                     maxWidth: 320
                   }}
                 >
-                  <div className="max-h-[400px] overflow-y-auto">
+                  <div className="max-h-[400px] overflow-visible">
                     <Card className="w-72 shadow-none border-0">
                       <CardHeader className="p-3">
                         <div className="flex justify-between items-start">
@@ -200,16 +261,28 @@ export default function BusinessSearch() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleSaveBusiness(selectedMarker)}
+                            className="h-8 w-8 p-0 hover:bg-transparent"
+                            onClick={() => {
+                              const isCurrentlySaved = savedBusinesses.some(b => b.place_id === selectedMarker.place_id);
+                              if (isCurrentlySaved) {
+                                removeSavedBusiness(selectedMarker.place_id || '');
+                              } else {
+                                handleSaveBusiness(selectedMarker);
+                              }
+                            }}
                           >
-                            <Heart className="w-4 h-4" />
+                            <Heart 
+                              className={`w-4 h-4 ${
+                                savedBusinesses.some(b => b.place_id === selectedMarker.place_id)
+                                  ? "fill-red-500 stroke-red-500"
+                                  : "stroke-gray-500"
+                              }`}
+                            />
                           </Button>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
                           {selectedMarker.details?.rating && (
                             <span className="flex items-center gap-1">
-                              <Star className="w-4 h-4" />
                               {formatRating(selectedMarker.details.rating)}
                             </span>
                           )}
@@ -218,20 +291,20 @@ export default function BusinessSearch() {
                           )}
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-2 p-3">
-                        <p className="flex items-start gap-2">
+                      <CardContent className="space-y-2 p-3 pt-0">
+                        <p className="flex items-start gap-2 text-gray-600">
                           <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
                           <span className="text-sm">{selectedMarker.formatted_address}</span>
                         </p>
                         {selectedMarker.details?.formatted_phone_number && (
-                          <p className="flex items-center gap-2">
+                          <p className="flex items-center gap-2 text-gray-600">
                             <Phone className="w-4 h-4 flex-shrink-0" />
                             <span className="text-sm">{selectedMarker.details.formatted_phone_number}</span>
                           </p>
                         )}
                         {selectedMarker.details?.website && (
                           <p className="flex items-start gap-2">
-                            <Globe className="w-4 h-4 mt-1 flex-shrink-0" />
+                            <Globe className="w-4 h-4 mt-1 flex-shrink-0 text-gray-600" />
                             <a 
                               href={selectedMarker.details.website} 
                               target="_blank" 
@@ -243,20 +316,6 @@ export default function BusinessSearch() {
                           </p>
                         )}
                       </CardContent>
-                      {selectedMarker.details?.reviews && (
-                        <CardFooter className="flex-col space-y-2 p-3 pt-0">
-                          <h4 className="font-semibold text-sm w-full">Recent Reviews</h4>
-                          {selectedMarker.details.reviews.slice(0, 2).map((review, index) => (
-                            <div key={index} className="w-full border-t pt-2">
-                              <div className="flex items-center gap-1 mb-1">
-                                <Star className="w-3 h-3" />
-                                <span className="text-sm">{review.rating}</span>
-                              </div>
-                              <p className="text-sm text-gray-600">{review.text}</p>
-                            </div>
-                          ))}
-                        </CardFooter>
-                      )}
                     </Card>
                   </div>
                 </InfoWindow>
@@ -297,11 +356,50 @@ export default function BusinessSearch() {
                 {savedBusinesses.length === 0 && (
                   <p className="text-gray-500 text-sm">No saved businesses yet</p>
                 )}
+                {savedBusinesses.length > 0 && (
+                  <div className="p-4 space-y-4 border-t">
+                    <Button 
+                      className="w-full"
+                      onClick={() => window.location.href = '/email-campaign'}
+                    >
+                      Create Email Campaign
+                    </Button>
+                    <Button 
+                      className="w-full"
+                      onClick={() => setShowNameDialog(true)}
+                    >
+                      Save List
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Name your list</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Enter list name"
+              value={listName}
+              onChange={(e) => setListName(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNameDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveList}>
+              Save List
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </LoadScript>
   )
 }

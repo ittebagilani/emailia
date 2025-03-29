@@ -24,23 +24,27 @@ model User {
 }
 
 model List {
-  id             String     @id @default(uuid()) // UUID for unique identification
-  userId         String // Foreign key to User
-  user           User       @relation(fields: [userId], references: [id])
-  name           String
-  businesses     Business[] // One-to-many relationship with Business
-  createdAt      DateTime   @default(now())
-  lastOpenedDate DateTime   @updatedAt
+  id          String      @id @default(cuid())
+  name        String
+  userId      String      // Foreign key to your user table
+  user        User        @relation(fields: [userId], references: [id])
+  businesses  Business[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Business {
-  id          String   @id @default(uuid()) // UUID for unique identification
+  id          String    @id @default(cuid())
+  listId      String
+  list        List      @relation(fields: [listId], references: [id])
+  placeId     String
   name        String
   address     String?
-  phoneNumber String?
+  phone       String?
   website     String?
-  listId      String // Foreign key to List
-  list        List     @relation(fields: [listId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  email       String?
+  rating      Float?
+  priceLevel  Int?
+  latitude    Float?
+  longitude   Float?
 }
