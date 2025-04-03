@@ -1,8 +1,4 @@
 {
-  "/features/page": "app/features/page.js",
-  "/sign-in/[[...sign-in]]/page": "app/sign-in/[[...sign-in]]/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/create-list/page": "app/create-list/page.js",
-  "/new-campaign/page": "app/new-campaign/page.js",
-  "/api/scrape-email/route": "app/api/scrape-email/route.js"
+  "/new-campaign/page": "app/new-campaign/page.js"
 }

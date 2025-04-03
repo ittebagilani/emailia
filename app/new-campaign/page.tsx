@@ -20,6 +20,26 @@ interface EnhancedPlaceResult extends google.maps.places.PlaceResult {
 const mapContainerStyle = { width: "100%", height: "100%" };
 const defaultCenter = { lat: 43.6532, lng: -79.3832 };
 
+// Haversine formula to calculate distance between two points (in kilometers)
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Radius of the Earth in kilometers
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in kilometers
+};
+
 const NewCampaign = () => {
   const { toast } = useToast();
   const [step, setStep] = useState<"target" | "email" | "review">("target");
@@ -28,60 +48,7 @@ const NewCampaign = () => {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const [businesses, setBusinesses] = useState<EnhancedPlaceResult[]>([]);
   const [selectedBusinesses, setSelectedBusinesses] = useState<EnhancedPlaceResult[]>([]);
-  const [businessesWithoutEmail, setBusinessesWithoutEmail] = useState<EnhancedPlaceResult[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<EnhancedPlaceResult | null>(null);
-
-  // Handle search for businesses
-  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!map) return;
-
-    const placesService = new google.maps.places.PlacesService(map);
-    setBusinesses([]);
-
-    const bounds = map.getBounds();
-    if (!bounds) return;
-
-    const request = {
-      bounds: bounds,
-      query: searchTerm,
-    };
-
-    placesService.textSearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK) {
-        results?.forEach((place) => {
-          if (!place.place_id) return;
-          const detailRequest = {
-            placeId: place.place_id,
-            fields: ["name", "rating", "formatted_phone_number", "website", "reviews", "opening_hours", "price_level"],
-          };
-          placesService.getDetails(detailRequest, (placeResult, detailStatus) => {
-            if (detailStatus === google.maps.places.PlacesServiceStatus.OK && placeResult) {
-              const enhancedPlace: EnhancedPlaceResult = { ...place, details: placeResult };
-              setBusinesses((prev) => [...prev.filter((b) => b.place_id !== place.place_id), enhancedPlace]);
-            }
-          });
-        });
-      }
-    });
-  };
-
-  // Handle marker click
-  const handleMarkerClick = useCallback((business: EnhancedPlaceResult) => {
-    setSelectedMarker(business);
-    if (map && business.geometry?.location) {
-      map.panTo({ lat: business.geometry.location.lat(), lng: business.geometry.location.lng() });
-    }
-  }, [map]);
-
-  // Simulated online email search (free alternative)
-  const searchEmailOnline = async (businessName: string): Promise<string | null> => {
-    const randomChance = Math.random();
-    if (randomChance > 0.8) {
-      return `${businessName.replace(/\s+/g, "").toLowerCase()}@example.com`;
-    }
-    return null;
-  };
 
   // Scrape or search for email
   const findBusinessEmail = async (business: EnhancedPlaceResult): Promise<string | null> => {
@@ -103,38 +70,127 @@ const NewCampaign = () => {
       }
     }
 
-    if (!email && business.name) {
-      email = await searchEmailOnline(business.name);
-    }
-
     return email;
   };
 
-  // Toggle business selection
-  const toggleBusinessSelection = async (business: EnhancedPlaceResult) => {
-    const isSelected = selectedBusinesses.find((b) => b.place_id === business.place_id);
-    const isWithoutEmail = businessesWithoutEmail.find((b) => b.place_id === business.place_id);
+  // Handle search for businesses
+  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!map) return;
 
-    if (isSelected || isWithoutEmail) {
+    const placesService = new google.maps.places.PlacesService(map);
+    setBusinesses([]);
+
+    const bounds = map.getBounds();
+    if (!bounds) return;
+
+    const request = {
+      bounds: bounds,
+      query: searchTerm,
+    };
+
+    placesService.textSearch(request, async (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK) {
+        const businessesWithEmails: EnhancedPlaceResult[] = [];
+
+        for (const place of results ?? []) {
+          if (!place.place_id) continue;
+
+          const detailRequest = {
+            placeId: place.place_id,
+            fields: ["name", "rating", "formatted_phone_number", "website", "reviews", "opening_hours", "price_level"],
+          };
+
+          await new Promise<void>((resolve) => {
+            placesService.getDetails(detailRequest, async (placeResult, detailStatus) => {
+              if (detailStatus === google.maps.places.PlacesServiceStatus.OK && placeResult) {
+                const enhancedPlace: EnhancedPlaceResult = { ...place, details: placeResult };
+                const email = await findBusinessEmail(enhancedPlace);
+                if (email) {
+                  enhancedPlace.email = email;
+                  businessesWithEmails.push(enhancedPlace);
+                }
+              }
+              resolve();
+            });
+          });
+        }
+
+        setBusinesses(businessesWithEmails);
+        if (businessesWithEmails.length === 0) {
+          toast({
+            title: "No Businesses Found",
+            description: "No businesses with emails were found for your search.",
+            variant: "destructive",
+          });
+        }
+      }
+    });
+  };
+
+  // Handle marker click
+  const handleMarkerClick = useCallback((business: EnhancedPlaceResult) => {
+    setSelectedMarker(business);
+    if (map && business.geometry?.location) {
+      map.panTo({ lat: business.geometry.location.lat(), lng: business.geometry.location.lng() });
+    }
+  }, [map]);
+
+  // Toggle business selection
+  const toggleBusinessSelection = (business: EnhancedPlaceResult) => {
+    const isSelected = selectedBusinesses.find((b) => b.place_id === business.place_id);
+
+    if (isSelected) {
       setSelectedBusinesses((prev) => prev.filter((b) => b.place_id !== business.place_id));
-      setBusinessesWithoutEmail((prev) => prev.filter((b) => b.place_id !== business.place_id));
       toast({ title: "Business Removed", description: `${business.name} removed from campaign` });
     } else {
-      const email = await findBusinessEmail(business);
-      const updatedBusiness = { ...business, email };
-
-      if (email) {
-        setSelectedBusinesses((prev) => [...prev, updatedBusiness]);
-        toast({ title: "Business Added", description: `${business.name} added to campaign` });
-      } else {
-        setBusinessesWithoutEmail((prev) => [...prev, updatedBusiness]);
-        toast({
-          title: "Email Not Found",
-          description: `${business.name} won't be emailed due to missing email address`,
-          variant: "destructive",
-        });
-      }
+      setSelectedBusinesses((prev) => [...prev, business]);
+      toast({ title: "Business Added", description: `${business.name} added to campaign` });
     }
+  };
+
+  // Select the closest 50 businesses
+  const selectClosest50Businesses = async () => {
+    if (!map || businesses.length === 0) {
+      toast({
+        title: "No Businesses Found",
+        description: "Please search for businesses first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get the map's center as the reference point
+    const center = map.getCenter();
+    const centerLat = center?.lat() ?? defaultCenter.lat;
+    const centerLng = center?.lng() ?? defaultCenter.lng;
+
+    // Calculate distances and sort businesses
+    const businessesWithDistance = businesses.map((business) => {
+      const lat = business.geometry?.location?.lat() ?? defaultCenter.lat;
+      const lng = business.geometry?.location?.lng() ?? defaultCenter.lng;
+      const distance = calculateDistance(centerLat, centerLng, lat, lng);
+      return { business, distance };
+    });
+
+    // Sort by distance and take the closest 50
+    const closestBusinesses = businessesWithDistance
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 50)
+      .map((item) => item.business);
+
+    // Add to selected businesses (all have emails already)
+    for (const business of closestBusinesses) {
+      if (selectedBusinesses.some((b) => b.place_id === business.place_id)) {
+        continue;
+      }
+      setSelectedBusinesses((prev) => [...prev, business]);
+    }
+
+    toast({
+      title: "Closest Businesses Selected",
+      description: `Added up to 50 closest businesses to your campaign.`,
+    });
   };
 
   // Format rating and price level
@@ -204,27 +260,32 @@ const NewCampaign = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {step === "target" && (
             <div className="h-[calc(100vh-200px)] flex flex-col">
-              {/* Search Bar */}
+              {/* Search Bar and Select Closest Button */}
               <div className="p-4 border-b">
-                <form onSubmit={handleSearch} className="flex gap-2 max-w-3xl mx-auto">
-                  <Autocomplete
-                    onLoad={setAutocomplete}
-                    onPlaceChanged={() => {
-                      if (autocomplete) setSearchTerm(autocomplete.getPlace().name || "");
-                    }}
-                  >
-                    <Input
-                      type="text"
-                      placeholder="Enter business keyword (e.g., restaurants)"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="flex-1"
-                    />
-                  </Autocomplete>
-                  <Button type="submit">
-                    <Search className="w-4 h-4 mr-2" /> Search
+                <div className="flex gap-2 max-w-3xl mx-auto">
+                  <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+                    <Autocomplete
+                      onLoad={setAutocomplete}
+                      onPlaceChanged={() => {
+                        if (autocomplete) setSearchTerm(autocomplete.getPlace().name || "");
+                      }}
+                    >
+                      <Input
+                        type="text"
+                        placeholder="Enter business keyword (e.g., restaurants)"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="flex-1"
+                      />
+                    </Autocomplete>
+                    <Button type="submit">
+                      <Search className="w-4 h-4 mr-2" /> Search
+                    </Button>
+                  </form>
+                  <Button onClick={selectClosest50Businesses} variant="outline">
+                    Select Closest 50
                   </Button>
-                </form>
+                </div>
               </div>
 
               {/* Map and Business List */}
@@ -254,10 +315,7 @@ const NewCampaign = () => {
                           onClick={() => toggleBusinessSelection(business)}
                           className="mt-2"
                         >
-                          {selectedBusinesses.some((b) => b.place_id === business.place_id) ||
-                          businessesWithoutEmail.some((b) => b.place_id === business.place_id)
-                            ? "Deselect"
-                            : "Select"}
+                          {selectedBusinesses.some((b) => b.place_id === business.place_id) ? "Deselect" : "Select"}
                         </Button>
                       </div>
                     ))
@@ -293,10 +351,7 @@ const NewCampaign = () => {
                             size="sm"
                             onClick={() => toggleBusinessSelection(selectedMarker)}
                           >
-                            {selectedBusinesses.some((b) => b.place_id === selectedMarker.place_id) ||
-                            businessesWithoutEmail.some((b) => b.place_id === selectedMarker.place_id)
-                              ? "Deselect"
-                              : "Select"}
+                            {selectedBusinesses.some((b) => b.place_id === selectedMarker.place_id) ? "Deselect" : "Select"}
                           </Button>
                         </div>
                       </InfoWindow>
@@ -304,64 +359,32 @@ const NewCampaign = () => {
                   </GoogleMap>
                 </div>
 
-                {/* Selected Businesses and Businesses Without Email (Right Sidebar) */}
+                {/* Selected Businesses (Right Sidebar) */}
                 <div className="w-80 border-l flex flex-col">
-                  {/* Selected Businesses */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="p-4 border-b">
-                      <h2 className="font-bold">Selected Businesses</h2>
-                    </div>
-                    <div className="p-4 flex-1 overflow-y-auto">
-                      {selectedBusinesses.map((business) => (
-                        <div key={business.place_id} className="mb-4 p-3 border rounded-lg relative group">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                            onClick={() => toggleBusinessSelection(business)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                          <div onClick={() => handleMarkerClick(business)} className="cursor-pointer">
-                            <p className="font-medium">{business.name}</p>
-                            <p className="text-sm text-gray-500">{business.email || "Email found"}</p>
-                            <p className="text-sm text-gray-500">{business.formatted_address}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {selectedBusinesses.length === 0 && (
-                        <p className="text-gray-500 text-sm">No businesses with emails selected yet</p>
-                      )}
-                    </div>
+                  <div className="p-4 border-b">
+                    <h2 className="font-bold">Selected Businesses</h2>
                   </div>
-
-                  {/* Businesses Without Email */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="p-4 border-t">
-                      <h2 className="font-bold text-red-600">Businesses Without Email</h2>
-                    </div>
-                    <div className="p-4 flex-1 overflow-y-auto">
-                      {businessesWithoutEmail.map((business) => (
-                        <div key={business.place_id} className="mb-4 p-3 border rounded-lg relative group bg-red-50">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                            onClick={() => toggleBusinessSelection(business)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                          <div onClick={() => handleMarkerClick(business)} className="cursor-pointer">
-                            <p className="font-medium">{business.name}</p>
-                            <p className="text-sm text-red-600">No email found</p>
-                            <p className="text-sm text-gray-500">{business.formatted_address}</p>
-                          </div>
+                  <div className="p-4 flex-1 overflow-y-auto">
+                    {selectedBusinesses.map((business) => (
+                      <div key={business.place_id} className="mb-4 p-3 border rounded-lg relative group">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                          onClick={() => toggleBusinessSelection(business)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                        <div onClick={() => handleMarkerClick(business)} className="cursor-pointer">
+                          <p className="font-medium">{business.name}</p>
+                          <p className="text-sm text-gray-500">{business.email}</p>
+                          <p className="text-sm text-gray-500">{business.formatted_address}</p>
                         </div>
-                      ))}
-                      {businessesWithoutEmail.length === 0 && (
-                        <p className="text-gray-500 text-sm">No businesses without emails</p>
-                      )}
-                    </div>
+                      </div>
+                    ))}
+                    {selectedBusinesses.length === 0 && (
+                      <p className="text-gray-500 text-sm">No businesses selected yet</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -420,7 +443,7 @@ Emaila`}
                 <CardContent>
                   <div className="p-4 border rounded-lg">
                     <h3 className="font-medium mb-2">Target Audience</h3>
-                    <div className="text-sm text-gray-500 mb-2">{selectedBusinesses.length} businesses with emails</div>
+                    <div className="text-sm text-gray-500 mb-2">{selectedBusinesses.length} businesses</div>
                     <div className="flex flex-wrap gap-2">
                       {selectedBusinesses.slice(0, 3).map((business) => (
                         <div key={business.place_id} className="px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-800">
@@ -449,13 +472,6 @@ Emaila`}
                         </Sheet>
                       )}
                     </div>
-                    {businessesWithoutEmail.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm text-red-600">
-                          {businessesWithoutEmail.length} businesses won’t be emailed due to missing emails
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -504,18 +520,11 @@ Emaila`}
                         <span>Total Recipients:</span>
                         <span className="font-medium">{selectedBusinesses.length} businesses</span>
                       </div>
-                      {businessesWithoutEmail.length > 0 && (
-                        <div className="mt-2 text-sm text-red-600">
-                          {businessesWithoutEmail.length} businesses excluded (no email found)
-                        </div>
-                      )}
                     </div>
                     <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
                       <h3 className="font-medium text-teal-800">Ready to Launch</h3>
                       <p className="text-sm text-teal-600">
                         Your campaign will be sent to {selectedBusinesses.length} businesses.
-                        {businessesWithoutEmail.length > 0 &&
-                          ` ${businessesWithoutEmail.length} businesses will be excluded due to missing emails.`}
                       </p>
                     </div>
                   </div>

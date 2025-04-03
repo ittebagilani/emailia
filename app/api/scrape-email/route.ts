@@ -1,7 +1,6 @@
 // app/api/scrape-email/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
-import cheerio from "cheerio";
+import puppeteer from "puppeteer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,27 +9,80 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ email: null, error: "URL is required" }, { status: 400 });
     }
 
-    // Fetch the webpage content
-    const { data } = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; EmailScraper/1.0)",
-      },
-      timeout: 10000, // 10-second timeout to avoid hanging
+    // Launch a headless browser
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
+    const page = await browser.newPage();
 
-    // Load the HTML into cheerio
-    const $ = cheerio.load(data);
+    // Set a user agent to avoid being blocked
+    await page.setUserAgent("Mozilla/5.0 (compatible; EmailScraper/1.0)");
 
-    // Look for email addresses in mailto links
-    let email = $("a[href^='mailto:']").attr("href")?.replace("mailto:", "");
+    // Navigate to the URL with a timeout
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 15000 });
 
-    // If no mailto link found, search for email patterns in text
-    if (!email) {
-      const text = $("body").text();
-      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-      const match = text.match(emailRegex);
-      email = match ? match[0] : null;
+    // Wait for potential dynamic content to load
+    await page.waitForTimeout(2000);
+
+    // Get the page content
+    const content = await page.content();
+
+    // Extract emails from the page content
+    let email: string | null = null;
+
+    // 1. Look for mailto links
+    const mailtoLinks = await page.$$eval("a[href^='mailto:']", (links) =>
+      links.map((link) => link.getAttribute("href")?.replace("mailto:", ""))
+    );
+    if (mailtoLinks.length > 0) {
+      email = mailtoLinks[0];
     }
+
+    // 2. Look for email patterns in text (including obfuscated ones)
+    if (!email) {
+      const text = await page.evaluate(() => document.body.innerText);
+
+      // Enhanced email regex
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      const matches = text.match(emailRegex);
+      if (matches) {
+        email = matches[0];
+      }
+
+      // 3. Look for obfuscated emails (e.g., "info [at] domain [dot] com")
+      if (!email) {
+        const obfuscatedRegex = /([a-zA-Z0-9._%+-]+)\s*\[at\]\s*([a-zA-Z0-9.-]+)\s*\[dot\]\s*([a-zA-Z]{2,})/gi;
+        const obfuscatedMatch = text.match(obfuscatedRegex);
+        if (obfuscatedMatch) {
+          const parts = obfuscatedMatch[0]
+            .replace(/\[at\]/gi, "@")
+            .replace(/\[dot\]/gi, ".")
+            .replace(/\s+/g, "");
+          email = parts;
+        }
+      }
+
+      // 4. Look for emails in common elements (e.g., contact sections)
+      if (!email) {
+        const contactElements = await page.$$eval(
+          "p, div, span, a",
+          (elements) =>
+            elements
+              .map((el) => el.textContent?.toLowerCase())
+              .filter((text) => text?.includes("contact") || text?.includes("email"))
+        );
+        for (const text of contactElements) {
+          const emailMatch = text?.match(emailRegex);
+          if (emailMatch) {
+            email = emailMatch[0];
+            break;
+          }
+        }
+      }
+    }
+
+    await browser.close();
 
     return NextResponse.json({ email: email || null });
   } catch (error) {
