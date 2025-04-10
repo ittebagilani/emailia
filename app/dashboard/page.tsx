@@ -16,6 +16,9 @@ const Dashboard = () => {
             <Link href={'/new-campaign'}>
             <Button className="gradient-button">New Campaign</Button>
             </Link>
+            <Link href={'/manage-emails'}>
+            <Button className="gradient-button">Manage Emails</Button>
+            </Link>
           </div>
         </div>
       </div>

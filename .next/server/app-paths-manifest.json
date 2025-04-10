@@ -1,4 +1,5 @@
 {
   "/dashboard/page": "app/dashboard/page.js",
-  "/new-campaign/page": "app/new-campaign/page.js"
+  "/manage-emails/page": "app/manage-emails/page.js",
+  "/api/verified-emails/route": "app/api/verified-emails/route.js"
 }
